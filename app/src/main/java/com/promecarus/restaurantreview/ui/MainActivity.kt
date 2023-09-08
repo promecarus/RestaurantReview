@@ -6,11 +6,11 @@ import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.promecarus.restaurantreview.data.response.CustomerReviewsItem
-import com.promecarus.restaurantreview.data.response.PostReviewResponse
 import com.promecarus.restaurantreview.data.response.Restaurant
 import com.promecarus.restaurantreview.data.response.RestaurantResponse
 import com.promecarus.restaurantreview.data.retrofit.ApiConfig
@@ -34,6 +34,14 @@ class MainActivity : AppCompatActivity() {
 
         supportActionBar?.hide()
 
+        val mainViewModel = ViewModelProvider(
+            this,
+            ViewModelProvider.NewInstanceFactory()
+        )[MainViewModel::class.java]
+        mainViewModel.restaurant.observe(this) { restaurant ->
+            setRestaurantData(restaurant)
+        }
+
         val layoutManager = LinearLayoutManager(this)
         binding.rvReview.layoutManager = layoutManager
         val itemDecoration = DividerItemDecoration(this, layoutManager.orientation)
@@ -41,8 +49,15 @@ class MainActivity : AppCompatActivity() {
 
         findRestaurant()
 
+        mainViewModel.listReview.observe(this) { consumerReviews ->
+            setReviewData(consumerReviews)
+        }
+        mainViewModel.isLoading.observe(this) {
+            showLoading(it)
+        }
+
         binding.btnSend.setOnClickListener { view ->
-            postReview(binding.edReview.text.toString())
+            mainViewModel.postReview(binding.edReview.text.toString())
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(view.windowToken, 0)
         }
@@ -96,29 +111,5 @@ class MainActivity : AppCompatActivity() {
         } else {
             binding.progressBar.visibility = View.GONE
         }
-    }
-
-    private fun postReview(review: String) {
-        showLoading(true)
-        val client = ApiConfig.getApiService().postReview(RESTAURANT_ID, "Dicoding", review)
-        client.enqueue(object : Callback<PostReviewResponse> {
-            override fun onResponse(
-                call: Call<PostReviewResponse>,
-                response: Response<PostReviewResponse>
-            ) {
-                showLoading(false)
-                val responseBody = response.body()
-                if (response.isSuccessful && responseBody != null) {
-                    setReviewData(responseBody.customerReviews)
-                } else {
-                    Log.e(TAG, "onFailure: ${response.message()}")
-                }
-            }
-
-            override fun onFailure(call: Call<PostReviewResponse>, t: Throwable) {
-                showLoading(false)
-                Log.e(TAG, "onFailure: ${t.message}")
-            }
-        })
     }
 }
